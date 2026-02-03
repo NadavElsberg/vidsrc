@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Elsbergs Streaming Service</title>
+  <link rel="stylesheet" href="viewer.css">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <div id="envBanner" style="position:fixed;right:12px;top:12px;padding:6px 10px;background:#ff5f5f;color:#fff;border-radius:6px;z-index:999;display:none;font-weight:600;font-size:12px">DEV</div>
+  <div class="wrap">
+    <h1>Elsbergs Streaming Service </h1>
+    
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="sourcePicker" style="display:flex;align-items:center;gap:8px;margin-right:8px">
+            <div class="source-seg" role="radiogroup" aria-label="Source">
+              <button class="source-btn" data-index="0" aria-pressed="false">1</button>
+              <button class="source-btn" data-index="1" aria-pressed="false">2</button>
+              <button class="source-btn" data-index="2" aria-pressed="false">3</button>
+              <button class="source-btn" data-index="3" aria-pressed="false">4</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+        
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="seg mode-seg" role="tablist" aria-label="Content type">
+            <button id="btn-movie" class="active" data-mode="movie" role="tab" aria-selected="true">Movies</button>
+            <button id="btn-series" data-mode="series" role="tab" aria-selected="false">Series</button>
+          </div>
+          <div style="font-size:13px;color:var(--muted)">Choose content type and enter the IMDb id</div>
+        </div>
+      </div>
+      
+      <form id="playerForm" autocomplete="off">
+        <div class="field">
+          <label for="imdb">IMDb ID</label>
+          <input id="imdb" name="imdb" type="text" placeholder="e.g. tt1375666" list="imdbListMovies" required />
+        </div>
+
+        <div class="field" id="seasonField" style="display:none">
+          <label for="season">Season</label>
+          <input id="season" name="season" type="number" min="1" placeholder="1" />
+        </div>
+
+        <div class="field" id="episodeField" style="display:none">
+          <label for="episode">Episode</label>
+          <input id="episode" name="episode" type="number" min="1" placeholder="1" />
+        </div>
+
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button type="submit" class="primary">Load</button>
+        </div>
+
+        <datalist id="imdbListMovies"></datalist>
+        <datalist id="imdbListSeries"></datalist>
+      </form>
+      
+
+        <div id="seriesControls" style="display:none;margin-top:12px;gap:8px;display:flex;align-items:center">
+          <button id="btn-prev-ep" class="secondary" title="Previous episode" aria-disabled="true">Last Episode</button>
+          <button id="btn-next-ep" class="secondary" title="Next episode">Next Episode</button>
+        </div>
+      </div>
+
+
+      <div class="hint">Tip: IMDb ids usually start with <code>tt</code> (e.g. <code>tt1234567</code>).</div>
+
+      <div class="iframe-wrap" id="playerContainer" aria-live="polite">
+        <!-- iframe will be injected here -->
+        <div id="placeholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Enter details and press Load to view</div>
+      </div>
+    </div>
+
+    
+  </div>
+
+  <script src="viewer.js"></script>
+</body>
+</html>
