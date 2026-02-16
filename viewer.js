@@ -24,6 +24,12 @@ const MAX_SERIES = 10;
 const __DEBUG__ = true; // set to true to enable debug logs
 const Base_URL_Sources = ["vidsrc-embed.ru" , "vidsrc-embed.su" , "vidsrcme.su" , "vsrc.su" ]
 
+// API base URL (adjust if your server is on a different host/port)
+let API_BASE_URL = 'http://192.168.1.10:5001';
+if(__DEBUG__) console.log('Initial API Base URL:', API_BASE_URL);
+
+
+
 // Return a valid last source index (0..n-1)
 function getLastSourceIndex(){
   try{
@@ -128,6 +134,143 @@ function setLastWatchedType(t){
 
 /* IMDb title lookup removed due to CORS/unreliable endpoint.
    We use the IMDb ID itself as the label for watched items. */
+
+// IMDb API search functions
+async function searchImdbByName(query){
+  if(!query || !query.trim()) return [];
+  try{
+    const url = `${API_BASE_URL}/api/get_imdb_look_up?name=${encodeURIComponent(query)}`;
+    const response = await fetch(url);
+    if(!response.ok) throw new Error(`API error: ${response.status}`);
+    const data = await response.json();
+    return (data.results || []).slice(0, 5); // top 5 results
+  }catch(err){
+    console.error('Search error:', err);
+    return [];
+  }
+}
+
+async function fetchTitleInfo(imdbId){
+  try{
+    const url = `${API_BASE_URL}/api/get_title_image?title_id=${encodeURIComponent(imdbId)}`;
+    const response = await fetch(url);
+    if(!response.ok) return null;
+    const data = await response.json();
+    return data.image || null;
+  }catch(err){
+    console.error('Image fetch error for', imdbId, err);
+    return null;
+  }
+}
+
+async function fetchTitleDetails(imdbId){
+  try{
+    const url = `${API_BASE_URL}/api/get_imdb_title_info?name=${encodeURIComponent(imdbId)}`;
+    const response = await fetch(url);
+    if(!response.ok) return null;
+    const data = await response.json();
+    // data contains: {id, title, year, type, url}
+    // type can be: "movie", "tvSeries", "tvMovie", "tvMiniSeries", etc.
+    return data;
+  }catch(err){
+    console.error('Title details fetch error for', imdbId, err);
+    return null;
+  }
+}
+
+async function displaySearchResults(results){
+  const container = document.getElementById('searchResults');
+  if(!container) return;
+  
+  container.innerHTML = '';
+  if(!results || results.length === 0){
+    container.innerHTML = '<div style="padding:12px;color:var(--muted);text-align:center">No results found</div>';
+    return;
+  }
+
+  container.style.display = 'grid';
+  
+  for(const imdbId of results){
+    const resultCard = document.createElement('div');
+    resultCard.className = 'search-result-card';
+    resultCard.dataset.imdb = imdbId;
+    
+    // Loading state
+    resultCard.innerHTML = `
+      <div class="search-result-poster loading">
+        <div style="color:var(--muted);font-size:12px">Loading...</div>
+      </div>
+      <div class="search-result-info">
+        <div class="search-result-title">${imdbId}</div>
+      </div>
+    `;
+    
+    container.appendChild(resultCard);
+    
+    // Fetch poster image
+    fetchTitleInfo(imdbId).then(imageUrl => {
+      const posterDiv = resultCard.querySelector('.search-result-poster');
+      posterDiv.classList.remove('loading');
+      if(imageUrl){
+        posterDiv.style.backgroundImage = `url('${imageUrl}')`;
+        posterDiv.innerHTML = '';
+      } else {
+        posterDiv.innerHTML = '<div style="color:var(--muted);font-size:12px">No image</div>';
+      }
+    });
+    
+    // Click handler
+    resultCard.addEventListener('click', async ()=>{
+      const imdb = resultCard.dataset.imdb;
+      imdbInput.value = imdb;
+      container.innerHTML = '';
+      container.style.display = 'none';
+      
+      // Fetch title details to determine type
+      const details = await fetchTitleDetails(imdb);
+      if(!details){
+        // Fallback: assume movie if we can't fetch details
+        if(__DEBUG__) console.warn('Could not fetch title details for', imdb, '- defaulting to movie');
+        setMode('movie');
+        form.dispatchEvent(new Event('submit'));
+        return;
+      }
+      
+      const titleType = details.type || '';
+      if(__DEBUG__) console.log('Title type:', titleType, 'for', imdb);
+      
+      // Determine if it's a series or movie
+      const isSeries = titleType === 'tvSeries' || titleType === 'tvMiniSeries';
+      
+      if(isSeries){
+        setMode('series');
+        
+        // Check if we have last watched episode in localStorage
+        const seriesList = getWatchedSeries();
+        const lastWatched = seriesList.find(s => s.imdb === imdb);
+        
+        if(lastWatched){
+          // Resume from last watched episode
+          seasonInput.value = lastWatched.season || 1;
+          episodeInput.value = lastWatched.episode || 1;
+          if(__DEBUG__) console.log('Resuming from S' + lastWatched.season + 'E' + lastWatched.episode);
+        } else {
+          // Default to S1E1
+          seasonInput.value = 1;
+          episodeInput.value = 1;
+          if(__DEBUG__) console.log('Starting from S1E1');
+        }
+        
+        // Auto-submit to load the series
+        form.dispatchEvent(new Event('submit'));
+      } else {
+        // It's a movie
+        setMode('movie');
+        form.dispatchEvent(new Event('submit'));
+      }
+    });
+  }
+}
 
 function populateDatalist(){
   const dlMovies = document.getElementById(MOVIE_LIST_ID);
@@ -415,3 +558,30 @@ updateSourceUI();
 imdbInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); form.dispatchEvent(new Event('submit')) } });
 seasonInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); form.dispatchEvent(new Event('submit')) } });
 episodeInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); form.dispatchEvent(new Event('submit')) } });
+
+// Search functionality
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+
+if(searchInput && searchBtn){
+  searchBtn.addEventListener('click', async ()=>{
+    const query = searchInput.value.trim();
+    if(!query) return;
+    
+    searchBtn.disabled = true;
+    searchBtn.textContent = 'Searching...';
+    
+    const results = await searchImdbByName(query);
+    await displaySearchResults(results);
+    
+    searchBtn.disabled = false;
+    searchBtn.textContent = 'Search';
+  });
+  
+  searchInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      searchBtn.click();
+    }
+  });
+}

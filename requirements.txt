@@ -3,3 +3,4 @@ flask-cors>=3.0.0
 requests>=2.25.0
 waitress>=2.1.0
 python-dotenv>=0.19.0
+common.IMDb>=1.2.2
