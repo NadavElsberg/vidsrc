@@ -1,4 +1,12 @@
 """this is just a simple server to serve the imdb data, it doesn't serve the actuall streaming, just metadata and the file paths for wach title"""
+""""
+    routes:
+    GET /api/get_first_imdb_title?name=NAME
+    GET /api/get_imdb_title_info?name=NAME
+    GET /api/get_imdb_look_up?name=NAME
+    GET /api/get_title_image?title_id=TITLE_ID
+"""
+
 from common import IMDb
 from common import network
 from flask import Flask, jsonify, request, make_response
@@ -93,8 +101,30 @@ def health():
 
 
 if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
+    
+    # Load environment variables from .env file
+    load_dotenv()
+    
     local_ip = network.get_local_ip()
-    port = 5001
+    port = int(os.getenv("PORT", 5001))
+    
+    # Use production server if FLASK_ENV != development
+    use_production = os.getenv("FLASK_ENV", "production") != "development"
+    
     print(f"IMDb server running at http://{local_ip}:{port}/")
-    # Run on localhost:5001 so it doesn't conflict with other dev servers
-    app.run(host=local_ip, port=port)
+    print(f"Mode: {'production' if use_production else 'development'}")
+    
+    if use_production:
+        try:
+            from waitress import serve
+            print("Using Waitress (production WSGI server)")
+            serve(app, host=local_ip, port=port, threads=4)
+        except ImportError:
+            print("WARNING: waitress not installed. Install with: pip install waitress")
+            print("Falling back to Flask dev server (NOT production-ready)")
+            app.run(host=local_ip, port=port, debug=False)
+    else:
+        print("Using Flask development server")
+        app.run(host=local_ip, port=port, debug=True)
