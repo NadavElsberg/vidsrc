@@ -97,4 +97,4 @@ if __name__ == "__main__":
     port = 5001
     print(f"IMDb server running at http://{local_ip}:{port}/")
     # Run on localhost:5001 so it doesn't conflict with other dev servers
-    app.run(host=local_ip, port=port, debug=True)
+    app.run(host=local_ip, port=port)
